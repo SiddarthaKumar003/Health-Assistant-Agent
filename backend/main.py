@@ -11,9 +11,13 @@ app = FastAPI(
 )
 
 
+from typing import Optional
+
+
 class ChatRequest(BaseModel):
     message: str
-
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
 
 @app.get("/")
 def root():
@@ -24,8 +28,11 @@ def root():
 
 @app.post("/chat")
 def chat(request: ChatRequest):
-
-    response = ask_health_agent(request.message)
+    response = ask_health_agent(
+        message=request.message,
+        latitude=request.latitude,
+        longitude=request.longitude,
+    )
 
     return {
         "response": response

@@ -137,6 +137,7 @@ from langchain_core.tools import tool
 from langgraph.graph import StateGraph, START, END
 from langgraph.graph.message import add_messages
 from langgraph.prebuilt import ToolNode
+from backend.tools.doctor_finder import find_nearby_doctors
 
 from backend.tools.medical_tools import (
     emergency_check,
@@ -147,9 +148,11 @@ from backend.tools.medical_tools import (
 
 load_dotenv()
 
-
+from typing import Optional
 class HealthState(TypedDict):
     messages: Annotated[list[AnyMessage], add_messages]
+    latitude: Optional[float]
+    longitude: Optional[float]
 
 
 llm = ChatGroq(
@@ -162,6 +165,7 @@ tools = [
     emergency_check,
     symptom_information,
     medical_information,
+    find_nearby_doctors,
 ]
 
 
@@ -185,6 +189,25 @@ IMPORTANT SAFETY RULES:
 6. Ask relevant follow-up questions when necessary.
 7. Clearly communicate uncertainty.
 8. Encourage professional medical evaluation when appropriate.
+
+NEARBY HEALTHCARE RULES:
+
+9. If the user explicitly asks for a nearby doctor, clinic,
+   hospital, or healthcare provider, use the find_nearby_doctors tool
+   when latitude and longitude are available.
+
+10. Never invent a doctor's name, address, phone number, distance,
+    rating, opening hours, or Maps link.
+
+11. If location information is unavailable, tell the user that
+    location permission is required to find nearby providers.
+
+12. Nearby provider search results are directory information.
+    Do not describe a provider as medically superior based only
+    on rating, distance, or search ranking.
+
+13. If the situation appears to be an emergency, do not delay
+    emergency guidance while searching for routine healthcare.
 
 You have access to health information tools. Use them when useful.
 """
@@ -239,16 +262,25 @@ builder.add_edge("tools", "health_agent")
 health_graph = builder.compile()
 
 
-def ask_health_agent(message: str):
+from typing import Optional
 
+
+def ask_health_agent(
+    message: str,
+    latitude: Optional[float] = None,
+    longitude: Optional[float] = None,
+):
+ 
     result = health_graph.invoke(
         {
             "messages": [
                 {
                     "role": "user",
-                    "content": message
+                    "content": message,
                 }
-            ]
+            ],
+            "latitude": latitude,
+            "longitude": longitude,
         }
     )
 
